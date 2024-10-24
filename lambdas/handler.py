@@ -62,10 +62,13 @@ def execute_trade(message: Dict[str, Any]) -> Dict[str, Any]:
             "time_in_force": "day"
         }
         order_data.update(message)
+        logger.info(order_data)
 
         order_response = requests.post(order_url, headers=HEADERS, json=order_data)
+        logger.info(order_response)
         
         if order_response.status_code != 200:
+            logger.info(f"Failed to place order: {order_response.text}")
             return {"error": f"Failed to place order: {order_response.text}"}
             
         order = order_response.json()
