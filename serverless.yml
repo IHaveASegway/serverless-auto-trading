@@ -1,0 +1,114 @@
+service: auto-trader
+
+frameworkVersion: '4.4'
+
+provider:
+  name: aws
+  runtime: python3.9
+  architecture: arm64
+  stage: ${sls:stage}
+  region: us-west-2
+  apiGateway:
+    apiKeys:
+      - name: ${sls:stage}-auto-trader-api-key
+        description: API key for accessing the auto-trader webhook endpoint
+    usagePlan:
+      - name: ${sls:stage}-auto-trader-standard-plan
+        description: Standard usage plan for auto-trader
+        quota:
+          limit: 5000
+          period: MONTH
+        throttle:
+          burstLimit: 200
+          rateLimit: 100
+    resourcePolicy:
+      - Effect: Allow
+        Principal: "*"
+        Action: execute-api:Invoke
+        Resource: arn:aws:execute-api:${aws:region}:${aws:accountId}:${self:service}-${self:provider.stage}/*/POST/message
+        Condition:
+          IpAddress:
+            aws:SourceIp:
+              - 52.89.214.238
+              - 34.212.75.30
+              - 54.218.53.128
+              - 52.32.178.7
+              - 63.151.20.138
+
+  environment:
+    STAGE: ${sls:stage}
+    PYTHON_PATH: './'
+    ALPACA_API_KEY: "PKDRICDJG6B1JSKROL7B"
+    ALPACA_SECRET_KEY: "ohrLJAjoi3WaEn9suLWDrvvc9MtnrbVwckTxeDA6"
+  
+  logRetentionInDays: 14
+  tags:
+    Environment: ${sls:stage}
+    Service: auto-trader
+  tracing:
+    apiGateway: true
+    lambda: true
+
+functions:
+  processMessage:
+    handler: lambdas/handler.handler
+    events:
+      - httpApi:
+          path: /message
+          method: POST
+          private: true
+          cors: true
+    layers:
+      - Ref: PythonRequirementsLambdaLayer
+    response:
+      headers:
+        - Content-Type: "'application/json'"
+        - Access-Control-Allow-Origin: "'*'"
+        - Access-Control-Allow-Credentials: "'true'"
+    request:
+      schemas:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+    timeout: 29
+    memorySize: 128
+
+package:
+  individually: false
+  patterns:
+    - '!node_modules/**'
+    - '!package*.json'
+    - '!package-lock.json'
+    - '!.venv/**'
+    - '!.env*'
+    - 'lambdas/**'
+    - 'requirements.txt'
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    layer:
+      name: python-deps
+      description: Python dependencies
+      paths:
+        - python/lib/python3.9/site-packages  # Explicitly set the layer path
+    noDeploy:
+      - pytest
+      - pytest-cov
+    zip: true
+    slim: true
+    strip: false
+    pythonBin: python3
+    architectures:
+      - arm64
+    cleanupZipHelper: true
+    pipCmdExtraArgs:
+      - --target python/lib/python3.9/site-packages  # Specify install location

@@ -1,4 +1,8 @@
 # Byte-compiled / optimized / DLL files
+.serverless*
+node_modules/
+path_to_site_packages/
+
 __pycache__/
 *.py[cod]
 *$py.class
